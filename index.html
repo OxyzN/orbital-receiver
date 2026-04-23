@@ -3,13 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Radio Orbital (Cast Receiver)</title>
-
-  <!-- Google Cast Application Framework (CAF) receiver -->
-  <script type="text/javascript" src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
-
+  <title>Radio Orbital | Neon Space Player</title>
   <style>
-    /* Keep the exact theme tokens from Radio.html */
     :root {
       --bg-deep: #05010f;
       --bg-mid: #110427;
@@ -28,7 +23,9 @@
       --glow-violet: 0 0 10px rgba(141, 77, 255, 0.8), 0 0 24px rgba(141, 77, 255, 0.35);
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     html, body {
       width: 100%;
@@ -45,205 +42,867 @@
     }
 
     body {
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
-    .panel {
-      width: min(980px, 92vw);
-      padding: 28px;
-      border-radius: 22px;
-      background: var(--panel);
-      border: 1px solid rgba(255,255,255,0.08);
-      box-shadow: 0 0 0 1px rgba(34, 231, 255, 0.10), 0 12px 55px rgba(0,0,0,0.55);
-      backdrop-filter: blur(18px);
+    .space {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
     }
 
-    .header {
+    .stars,
+    .stars::before,
+    .stars::after {
+      content: "";
+      position: absolute;
+      inset: -20%;
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,0.95) 0 1px, transparent 1.6px),
+        radial-gradient(circle, rgba(34,231,255,0.75) 0 1px, transparent 1.6px),
+        radial-gradient(circle, rgba(255,79,216,0.7) 0 1px, transparent 1.6px),
+        radial-gradient(circle, rgba(141,77,255,0.65) 0 1px, transparent 1.8px);
+      background-size: 180px 180px, 240px 240px, 320px 320px, 420px 420px;
+      background-position: 0 0, 60px 120px, 120px 40px, 200px 180px;
+      opacity: 0.55;
+      animation: driftStars 45s linear infinite;
+    }
+
+    .stars::before {
+      opacity: 0.35;
+      transform: scale(1.1);
+      animation-duration: 70s;
+    }
+
+    .stars::after {
+      opacity: 0.25;
+      transform: scale(1.2);
+      animation-duration: 90s;
+    }
+
+    .nebula {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 14% 24%, rgba(255, 60, 196, 0.24), transparent 20%),
+        radial-gradient(circle at 82% 25%, rgba(55, 120, 255, 0.22), transparent 16%),
+        radial-gradient(circle at 70% 72%, rgba(132, 67, 255, 0.22), transparent 20%),
+        radial-gradient(circle at 25% 78%, rgba(0, 225, 255, 0.16), transparent 18%);
+      filter: blur(18px);
+      animation: pulseNebula 10s ease-in-out infinite;
+    }
+
+    .orbit,
+    .orbit.two,
+    .orbit.three {
+      position: absolute;
+      border: 2px solid rgba(255, 255, 255, 0.08);
+      border-top-color: rgba(255, 79, 216, 0.45);
+      border-left-color: rgba(34, 231, 255, 0.35);
+      border-radius: 50%;
+      animation: rotateOrbit 18s linear infinite;
+    }
+
+    .orbit {
+      width: 34vw;
+      height: 34vw;
+      max-width: 420px;
+      max-height: 420px;
+      top: 6%;
+      right: 6%;
+    }
+
+    .orbit.two {
+      width: 46vw;
+      height: 18vw;
+      max-width: 620px;
+      max-height: 240px;
+      bottom: 10%;
+      left: -4%;
+      animation-duration: 26s;
+      animation-direction: reverse;
+    }
+
+    .orbit.three {
+      width: 22vw;
+      height: 22vw;
+      max-width: 260px;
+      max-height: 260px;
+      top: 12%;
+      left: 6%;
+      animation-duration: 14s;
+    }
+
+    .planet,
+    .planet.small,
+    .planet.tiny {
+      position: absolute;
+      border-radius: 50%;
+      box-shadow: 0 0 25px rgba(255,255,255,0.08);
+    }
+
+    .planet {
+      width: 170px;
+      height: 170px;
+      top: 8%;
+      right: 10%;
+      background:
+        radial-gradient(circle at 35% 30%, #44f2ff 0%, #227dff 28%, #28186c 62%, #0a0420 100%);
+      box-shadow: 0 0 40px rgba(79, 140, 255, 0.25), inset -18px -18px 30px rgba(0,0,0,0.35);
+      animation: floatPlanet 7s ease-in-out infinite;
+    }
+
+    .planet::after {
+      content: "";
+      position: absolute;
+      inset: 36% -18%;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 79, 216, 0.65);
+      transform: rotate(-18deg);
+      box-shadow: 0 0 18px rgba(255,79,216,0.35);
+    }
+
+    .planet.small {
+      width: 62px;
+      height: 62px;
+      left: 7%;
+      bottom: 18%;
+      background: radial-gradient(circle at 35% 30%, #ff78e8 0%, #7e39ff 56%, #18062f 100%);
+      animation: floatPlanet 9s ease-in-out infinite reverse;
+    }
+
+    .planet.tiny {
+      width: 28px;
+      height: 28px;
+      top: 14%;
+      left: 16%;
+      background: radial-gradient(circle at 35% 30%, #ffe86a 0%, #ff5a9d 72%, #24061e 100%);
+      animation: floatPlanet 5.5s ease-in-out infinite;
+    }
+
+    .shooting-star {
+      position: absolute;
+      top: 16%;
+      left: 65%;
+      width: 160px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(255,255,255,0), rgba(34,231,255,1));
+      transform: rotate(-22deg);
+      filter: drop-shadow(0 0 8px rgba(34,231,255,0.8));
+      animation: shoot 8s linear infinite;
+    }
+
+    .shooting-star.two {
+      top: 66%;
+      left: 12%;
+      width: 120px;
+      background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,79,216,1));
+      filter: drop-shadow(0 0 8px rgba(255,79,216,0.8));
+      animation-delay: 3s;
+      animation-duration: 10s;
+    }
+
+    .app {
+      position: relative;
+      z-index: 2;
+      width: min(1080px, 94vw);
+      height: min(92vh, 760px);
+      padding: 22px;
       display: flex;
-      gap: 16px;
       align-items: center;
-      justify-content: space-between;
-      padding-bottom: 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      margin-bottom: 18px;
+      justify-content: center;
     }
 
-    .brand {
+    .shell {
+      width: 100%;
+      height: 100%;
+      border-radius: 34px;
+      background:
+        linear-gradient(180deg, rgba(13, 10, 40, 0.72), rgba(7, 6, 24, 0.92));
+      border: 1px solid rgba(143, 104, 255, 0.26);
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.05),
+        0 0 0 1px rgba(34,231,255,0.08),
+        0 22px 70px rgba(0,0,0,0.52),
+        0 0 45px rgba(141,77,255,0.1);
+      backdrop-filter: blur(14px);
+      padding: 26px 28px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.04) 18%, transparent 34%);
+      animation: glassSweep 7s linear infinite;
+      pointer-events: none;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-block {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
     }
 
-    .title {
-      margin: 0;
-      letter-spacing: 0.08em;
+    .eyebrow {
+      font-size: 0.82rem;
+      letter-spacing: 5px;
       text-transform: uppercase;
-      font-size: 18px;
-      color: var(--soft);
+      color: #d9dfff;
+      opacity: 0.8;
     }
 
-    .name {
+    .logo {
       margin: 0;
-      font-size: 34px;
-      line-height: 1.1;
-      text-shadow: var(--glow-violet);
+      font-size: clamp(2.8rem, 8vw, 5.8rem);
+      line-height: 0.92;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      font-weight: 900;
     }
 
-    .name .radio { color: var(--cyan); text-shadow: var(--glow-cyan); }
-    .name .orbital { color: var(--pink); text-shadow: var(--glow-pink); }
+    .logo .radio {
+      display: block;
+      font-size: 0.42em;
+      letter-spacing: 0.32em;
+      color: #ffffff;
+      text-shadow: 0 0 10px rgba(255,255,255,0.15);
+      margin-bottom: 0.1em;
+    }
 
-    .status {
-      display: inline-flex;
+    .logo .orbital {
+      background: linear-gradient(90deg, var(--cyan), #61b5ff 28%, #b97bff 62%, var(--pink));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 20px rgba(141,77,255,0.22);
+      filter: drop-shadow(0 0 12px rgba(255,79,216,0.2));
+    }
+
+    .tagline {
+      font-size: clamp(0.95rem, 2vw, 1.15rem);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #f2f5ff;
+      opacity: 0.9;
+    }
+
+    .on-air {
+      padding: 14px 20px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,79,216,0.45);
+      background: rgba(15, 8, 34, 0.7);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), var(--glow-pink);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      white-space: nowrap;
+      display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(7, 6, 24, 0.62);
-      color: var(--white);
-      font-weight: 700;
-      letter-spacing: 0.03em;
     }
 
-    .dot {
+    .on-air::before {
+      content: "";
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--pink);
+      box-shadow: 0 0 12px rgba(255,79,216,0.9);
+      animation: blinkAir 1s steps(1) infinite;
+    }
+
+    .center {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 22px;
+      min-height: 0;
+    }
+
+    .left,
+    .right {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(11, 9, 36, 0.88), rgba(7, 6, 24, 0.95));
+      border: 1px solid rgba(127, 98, 255, 0.22);
+      border-radius: 28px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(34,231,255,0.45), rgba(255,79,216,0.45), transparent);
+    }
+
+    .hero {
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 170px;
+    }
+
+    .hero-kicker {
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.28em;
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+      text-shadow: var(--glow-cyan);
+    }
+
+    .hero-title {
+      margin: 0 0 8px;
+      font-size: clamp(1.6rem, 3vw, 2.5rem);
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .hero-copy {
+      margin: 0;
+      color: var(--soft);
+      font-size: 1rem;
+      max-width: 32ch;
+      line-height: 1.45;
+    }
+
+    .player {
+      padding: 22px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 12px;
+      min-height: 220px;
+    }
+
+    .divider {
+      width: 1px;
+      height: 110px;
+      background: linear-gradient(180deg, transparent, rgba(137, 120, 255, 0.35), transparent);
+      justify-self: center;
+    }
+
+    .control {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      justify-content: center;
+    }
+
+    .control-btn {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.08);
+      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.14), rgba(14,12,40,0.94));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 0 30px rgba(0,0,0,0.3);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+      color: var(--white);
+    }
+
+    .control-btn.play {
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05), 0 0 26px rgba(34,231,255,0.2), 0 0 46px rgba(34,231,255,0.08);
+      border-color: rgba(34,231,255,0.5);
+    }
+
+    .control-btn.stop {
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05), 0 0 26px rgba(255,79,216,0.2), 0 0 46px rgba(255,79,216,0.08);
+      border-color: rgba(255,79,216,0.5);
+    }
+
+    .control-btn:hover,
+    .control-btn:focus-visible {
+      transform: scale(1.05);
+      outline: none;
+      filter: brightness(1.08);
+    }
+
+    .control-btn:active {
+      transform: scale(0.98);
+    }
+
+    .icon-play {
+      width: 0;
+      height: 0;
+      border-top: 24px solid transparent;
+      border-bottom: 24px solid transparent;
+      border-left: 38px solid currentColor;
+      margin-left: 8px;
+      filter: drop-shadow(0 0 10px rgba(255,255,255,0.18));
+    }
+
+    .icon-stop {
+      width: 34px;
+      height: 34px;
+      background: currentColor;
+      border-radius: 6px;
+      filter: drop-shadow(0 0 10px rgba(255,255,255,0.18));
+    }
+
+    .play { color: var(--cyan); text-shadow: var(--glow-cyan); }
+    .stop { color: var(--pink); text-shadow: var(--glow-pink); }
+
+    .control-label {
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 1.3rem;
+    }
+
+    .equalizer-panel {
+      padding: 18px 18px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 0;
+      flex: 1;
+    }
+
+    .eq-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: #dfe7ff;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+    }
+
+    .live-dot {
       width: 10px;
       height: 10px;
       border-radius: 50%;
       background: var(--cyan);
-      box-shadow: var(--glow-cyan);
-      animation: pulse 1.4s ease-in-out infinite;
+      box-shadow: 0 0 12px rgba(34,231,255,0.95);
+      animation: blinkAir 1.4s steps(1) infinite;
     }
 
-    @keyframes pulse {
-      0%, 100% { transform: scale(0.85); opacity: 0.65; }
-      50% { transform: scale(1.1); opacity: 1; }
-    }
-
-    .body {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-      align-items: stretch;
-    }
-
-    .card {
-      border-radius: 18px;
-      background: var(--panel-strong);
-      border: 1px solid rgba(255,255,255,0.08);
-      padding: 18px;
+    .eq-wrap {
+      flex: 1;
       min-height: 180px;
+      border-radius: 22px;
+      border: 1px solid rgba(116, 92, 255, 0.18);
+      background:
+        linear-gradient(180deg, rgba(8,7,28,0.72), rgba(4,4,18,0.95)),
+        repeating-linear-gradient(to top, rgba(255,255,255,0.03) 0 2px, transparent 2px 28px);
+      padding: 18px 14px 14px;
+      display: flex;
+      align-items: end;
+      gap: 8px;
+      overflow: hidden;
     }
 
-    .card h2 {
-      margin: 0 0 10px 0;
-      font-size: 18px;
-      letter-spacing: 0.04em;
-      color: var(--soft);
+    .bar {
+      flex: 1;
+      border-radius: 8px 8px 2px 2px;
+      background: linear-gradient(180deg, var(--pink), #a562ff 52%, var(--cyan) 100%);
+      box-shadow: 0 0 14px rgba(141,77,255,0.26);
+      transform-origin: bottom center;
+      animation: eqBounce 1.2s ease-in-out infinite;
+      min-width: 14px;
+      opacity: 0.98;
+    }
+
+    .bar:nth-child(2) { animation-duration: 0.8s; }
+    .bar:nth-child(3) { animation-duration: 1.4s; }
+    .bar:nth-child(4) { animation-duration: 1.05s; }
+    .bar:nth-child(5) { animation-duration: 0.95s; }
+    .bar:nth-child(6) { animation-duration: 1.6s; }
+    .bar:nth-child(7) { animation-duration: 0.9s; }
+    .bar:nth-child(8) { animation-duration: 1.25s; }
+    .bar:nth-child(9) { animation-duration: 1.45s; }
+    .bar:nth-child(10) { animation-duration: 0.75s; }
+    .bar:nth-child(11) { animation-duration: 1.15s; }
+    .bar:nth-child(12) { animation-duration: 1.35s; }
+    .bar:nth-child(13) { animation-duration: 0.88s; }
+    .bar:nth-child(14) { animation-duration: 1.5s; }
+    .bar:nth-child(15) { animation-duration: 0.98s; }
+    .bar:nth-child(16) { animation-duration: 1.22s; }
+    .bar:nth-child(17) { animation-duration: 1.55s; }
+    .bar:nth-child(18) { animation-duration: 0.86s; }
+
+    .station-card {
+      padding: 20px 22px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .broadcast-icon {
+      width: 66px;
+      height: 66px;
+      border-radius: 22px;
+      border: 1px solid rgba(34,231,255,0.32);
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 50% 40%, rgba(34,231,255,0.15), rgba(4,8,30,0.92));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), 0 0 18px rgba(34,231,255,0.08);
+      position: relative;
+    }
+
+    .broadcast-icon::before,
+    .broadcast-icon::after {
+      content: "";
+      position: absolute;
+      border: 3px solid transparent;
+      border-left-color: var(--cyan);
+      border-right-color: var(--cyan);
+      border-radius: 50%;
+      opacity: 0.95;
+    }
+
+    .broadcast-icon::before {
+      width: 28px;
+      height: 28px;
+    }
+
+    .broadcast-icon::after {
+      width: 42px;
+      height: 42px;
+    }
+
+    .broadcast-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 10px rgba(34,231,255,0.9);
+    }
+
+    .station-name {
+      margin: 0 0 4px;
+      font-size: 1.7rem;
+      font-weight: 900;
       text-transform: uppercase;
     }
 
-    .card p {
-      margin: 0 0 14px 0;
-      color: rgba(238, 246, 255, 0.86);
-      line-height: 1.45;
+    .station-meta {
+      margin: 0;
+      color: var(--soft);
+      font-size: 1rem;
     }
 
-    .controls {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      appearance: none;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(7, 6, 24, 0.62);
-      color: var(--white);
-      padding: 12px 16px;
-      border-radius: 14px;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      cursor: pointer;
-      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
-      user-select: none;
-    }
-
-    .btn:hover { transform: translateY(-1px); }
-
-    .btn.play {
-      border-color: rgba(34,231,255,0.55);
-      box-shadow: 0 0 0 1px rgba(34,231,255,0.10), var(--glow-cyan);
+    .mini-copy {
+      text-align: right;
       color: var(--cyan);
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      line-height: 1.5;
     }
 
-    .btn.stop {
-      border-color: rgba(255,79,216,0.55);
-      box-shadow: 0 0 0 1px rgba(255,79,216,0.10), var(--glow-pink);
-      color: var(--pink);
-    }
-
-    .footer {
-      padding-top: 16px;
-      margin-top: 18px;
-      border-top: 1px solid rgba(255,255,255,0.08);
-      color: rgba(185, 198, 255, 0.85);
+    .bottomline {
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      gap: 14px;
-      font-weight: 600;
+      gap: 16px;
+      color: var(--soft);
+      font-size: 0.95rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-    @media (max-width: 820px) {
-      .body { grid-template-columns: 1fr; }
-      .name { font-size: 30px; }
+    .status-text {
+      color: #eff4ff;
+    }
+
+    .mini-leds {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .mini-led {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--pink);
+      box-shadow: 0 0 10px rgba(255,79,216,0.8);
+      animation: blinkAir 1.2s steps(1) infinite;
+    }
+
+    .mini-led:nth-child(2) {
+      background: var(--violet);
+      box-shadow: 0 0 10px rgba(141,77,255,0.8);
+      animation-duration: 0.9s;
+    }
+
+    .mini-led:nth-child(3) {
+      background: var(--cyan);
+      box-shadow: 0 0 10px rgba(34,231,255,0.8);
+      animation-duration: 1.4s;
+    }
+
+    audio {
+      display: none;
+    }
+
+    @keyframes eqBounce {
+      0%, 100% { transform: scaleY(0.22); }
+      12% { transform: scaleY(0.78); }
+      24% { transform: scaleY(0.42); }
+      36% { transform: scaleY(0.95); }
+      58% { transform: scaleY(0.3); }
+      80% { transform: scaleY(0.86); }
+    }
+
+    @keyframes blinkAir {
+      0%, 55% { opacity: 1; }
+      56%, 100% { opacity: 0.35; }
+    }
+
+    @keyframes pulseNebula {
+      0%, 100% { transform: scale(1); opacity: 0.95; }
+      50% { transform: scale(1.05); opacity: 1; }
+    }
+
+    @keyframes floatPlanet {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+
+    @keyframes rotateOrbit {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes driftStars {
+      from { transform: translate3d(0, 0, 0); }
+      to { transform: translate3d(-120px, 80px, 0); }
+    }
+
+    @keyframes glassSweep {
+      from { transform: translateX(-120%); }
+      to { transform: translateX(180%); }
+    }
+
+    @keyframes shoot {
+      0% { transform: translateX(0) translateY(0) rotate(-22deg); opacity: 0; }
+      8% { opacity: 1; }
+      24% { transform: translateX(-180px) translateY(80px) rotate(-22deg); opacity: 0; }
+      100% { transform: translateX(-180px) translateY(80px) rotate(-22deg); opacity: 0; }
+    }
+
+    @media (max-width: 920px), (max-height: 700px) {
+      .app {
+        width: 96vw;
+        height: 94vh;
+      }
+
+      .shell {
+        padding: 18px;
+      }
+
+      .center {
+        grid-template-columns: 1fr;
+      }
+
+      .player {
+        min-height: 180px;
+      }
+
+      .planet {
+        width: 110px;
+        height: 110px;
+      }
+
+      .station-card {
+        grid-template-columns: auto 1fr;
+      }
+
+      .mini-copy {
+        grid-column: 1 / -1;
+        text-align: left;
+      }
     }
   </style>
 </head>
 <body>
-  <main class="panel">
-    <header class="header">
-      <div class="brand">
-        <div class="title">Dance Electronic Music</div>
-        <h1 class="name"><span class="radio">Radio</span> <span class="orbital">Orbital</span></h1>
-      </div>
-      <div class="status" id="castStatus">
-        <span class="dot" aria-hidden="true"></span>
-        <span id="castStatusText">Waiting for sender…</span>
-      </div>
-    </header>
+  <div class="space" aria-hidden="true">
+    <div class="stars"></div>
+    <div class="nebula"></div>
+    <div class="orbit"></div>
+    <div class="orbit two"></div>
+    <div class="orbit three"></div>
+    <div class="planet"></div>
+    <div class="planet small"></div>
+    <div class="planet tiny"></div>
+    <div class="shooting-star"></div>
+    <div class="shooting-star two"></div>
+  </div>
 
-    <section class="body">
-      <section class="card">
-        <h2>Now Playing</h2>
-        <p id="nowPlaying">Live stream from Lisbon.</p>
-        <div class="controls">
-          <button class="btn play" id="playBtn" type="button">Play</button>
-          <button class="btn stop" id="stopBtn" type="button">Stop</button>
+  <main class="app">
+    <section class="shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="eyebrow">EST. 2001</div>
+          <h1 class="logo">
+            <span class="radio">Radio</span>
+            <span class="orbital">Orbital</span>
+          </h1>
+          <div class="tagline">Dance Electronic Music</div>
+        </div>
+
+        <div class="on-air">On Air</div>
+      </header>
+
+      <section class="center">
+        <div class="left">
+          <section class="panel hero">
+            <div class="hero-kicker">Live Streaming</div>
+            <h2 class="hero-title">Homemade by Rafael.</h2>
+            <p class="hero-copy">For use in the kitchen while washing the dishes.</p>
+          </section>
+
+          <section class="panel player">
+            <div class="control">
+              <button class="control-btn play" id="playBtn" type="button" aria-label="Play Radio Orbital">
+                <span class="icon-play"></span>
+              </button>
+              <div class="control-label play">Play</div>
+            </div>
+
+            <div class="divider" aria-hidden="true"></div>
+
+            <div class="control">
+              <button class="control-btn stop" id="stopBtn" type="button" aria-label="Stop Radio Orbital">
+                <span class="icon-stop"></span>
+              </button>
+              <div class="control-label stop">Stop</div>
+            </div>
+          </section>
+        </div>
+
+        <div class="right">
+          <section class="panel equalizer-panel">
+            <div class="eq-header">
+              <span>Stereo Output</span>
+              <span class="live-dot"></span>
+            </div>
+
+            <div class="eq-wrap" aria-hidden="true">
+              <span class="bar" style="height:30%"></span>
+              <span class="bar" style="height:48%"></span>
+              <span class="bar" style="height:68%"></span>
+              <span class="bar" style="height:52%"></span>
+              <span class="bar" style="height:84%"></span>
+              <span class="bar" style="height:40%"></span>
+              <span class="bar" style="height:92%"></span>
+              <span class="bar" style="height:58%"></span>
+              <span class="bar" style="height:74%"></span>
+              <span class="bar" style="height:34%"></span>
+              <span class="bar" style="height:88%"></span>
+              <span class="bar" style="height:44%"></span>
+              <span class="bar" style="height:80%"></span>
+              <span class="bar" style="height:52%"></span>
+              <span class="bar" style="height:96%"></span>
+              <span class="bar" style="height:38%"></span>
+              <span class="bar" style="height:66%"></span>
+              <span class="bar" style="height:54%"></span>
+            </div>
+          </section>
+
+          <section class="panel station-card">
+            <div class="broadcast-icon" aria-hidden="true">
+              <span class="broadcast-dot"></span>
+            </div>
+
+            <div>
+              <h3 class="station-name">Rádio Orbital</h3>
+              <p class="station-meta">Lisboa • 101.9 FM • Online</p>
+            </div>
+
+            <div class="mini-copy">Sintoniza-te.<br>Dança. Sente. Repete.</div>
+          </section>
         </div>
       </section>
 
-      <section class="card">
-        <h2>Tip</h2>
-        <p>
-          This is a custom Google Cast receiver, so this HTML UI renders directly on the Nest Hub.
-          Use the Android app’s Cast button to connect and start playback.
-        </p>
-        <p id="debugLine" style="opacity:.8"></p>
-      </section>
+      <footer class="bottomline">
+        <div class="status-text" id="statusText">Ready to launch</div>
+        <div class="mini-leds" aria-hidden="true">
+          <span class="mini-led"></span>
+          <span class="mini-led"></span>
+          <span class="mini-led"></span>
+        </div>
+      </footer>
+
+      <audio id="radio" preload="none">
+        <source src="https://ec2.yesstreaming.net:3025/stream" type="audio/mpeg" />
+        Your browser does not support HTML audio.
+      </audio>
     </section>
-
-    <footer class="footer">
-      <span id="statusText">Ready</span>
-      <span>Orbital Receiver</span>
-    </footer>
-
-    <!-- CAF uses a media element under the hood. We also keep an explicit element for UI control. -->
-    <audio id="radio" preload="none" playsinline></audio>
   </main>
 
-  <script src="./receiver.js"></script>
+  <script>
+    const audio = document.getElementById('radio');
+    const playBtn = document.getElementById('playBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const statusText = document.getElementById('statusText');
+
+    playBtn.addEventListener('click', async () => {
+      try {
+        await audio.play();
+        statusText.textContent = 'Now streaming live all the way from Lisbon';
+      } catch (err) {
+        statusText.textContent = 'Tap play again if autoplay is blocked';
+      }
+    });
+
+    stopBtn.addEventListener('click', () => {
+      audio.pause();
+      audio.load();
+      statusText.textContent = 'Transmission stopped';
+    });
+
+    audio.addEventListener('waiting', () => {
+      statusText.textContent = 'Buffering signal...';
+    });
+
+    audio.addEventListener('playing', () => {
+      statusText.textContent = 'Now streaming live';
+    });
+
+    audio.addEventListener('pause', () => {
+      if (!audio.ended && audio.currentTime > 0) {
+        statusText.textContent = 'Playback paused';
+      }
+    });
+
+    audio.addEventListener('error', () => {
+      statusText.textContent = 'Stream unavailable';
+    });
+  </script>
 </body>
 </html>
-
