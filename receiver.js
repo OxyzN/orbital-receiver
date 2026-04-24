@@ -50,13 +50,6 @@ function logDebug(text) {
 const hasCaf = typeof cast !== "undefined" && cast?.framework?.CastReceiverContext;
 const context = hasCaf ? cast.framework.CastReceiverContext.getInstance() : null;
 const playerManager = context ? context.getPlayerManager() : null;
-
-// Point CAF at the existing <audio> element so it can play audio without
-// rendering its own <cast-media-player> overlay on the Nest Hub.
-if (playerManager && localAudio) {
-  playerManager.setMediaElement(localAudio);
-}
-
 const mediaElement = playerManager ? playerManager.getMediaElement() : null;
 
 function currentStreamUrl() {
