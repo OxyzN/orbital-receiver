@@ -255,8 +255,11 @@
       <span>Orbital Receiver</span>
     </footer>
 
-    <!-- CAF uses this element for playback (set via playerManager.setMediaElement in receiver.js).
-         Keeping it hidden lets our custom UI remain visible on the Nest Hub. -->
+    <!-- CAF requires <cast-media-player> in the DOM to route audio on Nest Hub.
+         Zeroed out so it doesn't cover our custom UI. -->
+    <cast-media-player style="position:absolute;width:0;height:0;overflow:hidden;"></cast-media-player>
+
+    <!-- Fallback audio element used when CAF is absent (laptop browser preview). -->
     <audio id="radio" preload="none" playsinline></audio>
   </main>
 
