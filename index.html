@@ -417,8 +417,9 @@
     }
 
     .control-btn {
-      width: 120px;
-      height: 120px;
+      --btn: clamp(88px, 18vw, 120px);
+      width: var(--btn);
+      height: var(--btn);
       border-radius: 50%;
       border: 2px solid rgba(255,255,255,0.08);
       background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.14), rgba(14,12,40,0.94));
@@ -454,16 +455,16 @@
     .icon-play {
       width: 0;
       height: 0;
-      border-top: 24px solid transparent;
-      border-bottom: 24px solid transparent;
-      border-left: 38px solid currentColor;
-      margin-left: 8px;
+      border-top: clamp(16px, 4.6vw, 24px) solid transparent;
+      border-bottom: clamp(16px, 4.6vw, 24px) solid transparent;
+      border-left: clamp(26px, 7.2vw, 38px) solid currentColor;
+      margin-left: clamp(5px, 1.4vw, 8px);
       filter: drop-shadow(0 0 10px rgba(255,255,255,0.18));
     }
 
     .icon-stop {
-      width: 34px;
-      height: 34px;
+      width: clamp(24px, 6.8vw, 34px);
+      height: clamp(24px, 6.8vw, 34px);
       background: currentColor;
       border-radius: 6px;
       filter: drop-shadow(0 0 10px rgba(255,255,255,0.18));
@@ -716,9 +717,20 @@
     }
 
     @media (max-width: 920px), (max-height: 700px) {
+      html, body {
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      body {
+        align-items: flex-start;
+        padding: 12px 0;
+      }
+
       .app {
         width: 96vw;
-        height: 94vh;
+        height: auto;
+        min-height: 94vh;
       }
 
       .shell {
@@ -745,6 +757,39 @@
       .mini-copy {
         grid-column: 1 / -1;
         text-align: left;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .player {
+        grid-template-columns: 1fr;
+        gap: 18px;
+      }
+
+      .divider {
+        display: none;
+      }
+
+      .control {
+        gap: 10px;
+      }
+
+      .control-btn {
+        width: 92px;
+        height: 92px;
+      }
+
+      .icon-play {
+        border-top-width: 18px;
+        border-bottom-width: 18px;
+        border-left-width: 30px;
+        margin-left: 6px;
+      }
+
+      .icon-stop {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
       }
     }
   </style>
