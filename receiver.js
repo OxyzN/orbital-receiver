@@ -4,10 +4,14 @@
 // - Provides local Play/Stop buttons (touchscreen)
 
 const DEFAULT_STREAM_URL = "https://ec2.yesstreaming.net:3025/stream";
+const ICECAST_STATUS_URL = "https://ec2.yesstreaming.net:3025/status-json.xsl";
+const METADATA_REFRESH_MS = 15000;
 
 const castStatusText = document.getElementById("castStatusText");
 const statusText = document.getElementById("statusText");
 const nowPlaying = document.getElementById("nowPlaying");
+const trackTitle = document.getElementById("trackTitle");
+const trackArtist = document.getElementById("trackArtist");
 const debugLine = document.getElementById("debugLine");
 const playBtn = document.getElementById("playBtn");
 const stopBtn = document.getElementById("stopBtn");
@@ -47,6 +51,57 @@ function logDebug(text) {
   if (debugLine) debugLine.textContent = text;
 }
 
+function splitTrackTitle(rawTitle) {
+  const title = String(rawTitle || "").replace(/\s+/g, " ").trim();
+  if (!title) return null;
+
+  const match = title.match(/^(.+?)\s+-\s+(.+)$/);
+  if (!match) return { artist: "Radio Orbital", title };
+
+  return {
+    artist: match[1].trim(),
+    title: match[2].trim(),
+  };
+}
+
+function getIcecastSource(payload) {
+  const source = payload?.icestats?.source;
+  return Array.isArray(source) ? source[0] : source;
+}
+
+function renderTrackMetadata(metadata) {
+  if (!metadata) return;
+
+  if (trackTitle) trackTitle.textContent = metadata.title;
+  if (trackArtist) trackArtist.textContent = metadata.artist;
+  if (nowPlaying) nowPlaying.textContent = "Live from Lisbon";
+}
+
+async function refreshTrackMetadata() {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(`${ICECAST_STATUS_URL}?_=${Date.now()}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const payload = await response.json();
+    const source = getIcecastSource(payload);
+    const metadata = splitTrackTitle(
+      source?.title || source?.yp_currently_playing
+    );
+
+    renderTrackMetadata(metadata);
+  } catch {
+    if (nowPlaying) nowPlaying.textContent = "Track metadata unavailable.";
+  }
+}
+
 const hasCaf = typeof cast !== "undefined" && cast?.framework?.CastReceiverContext;
 const context = hasCaf ? cast.framework.CastReceiverContext.getInstance() : null;
 const playerManager = context ? context.getPlayerManager() : null;
@@ -60,6 +115,25 @@ function currentStreamUrl() {
   } catch {}
 
   return DEFAULT_STREAM_URL;
+}
+
+async function loadStreamThroughCastPlayer(url) {
+  if (!playerManager || !cast?.framework?.messages) return false;
+
+  const media = new cast.framework.messages.MediaInformation();
+  media.contentId = url;
+  media.contentUrl = url;
+  media.contentType = "audio/mpeg";
+  media.streamType = cast.framework.messages.StreamType.LIVE;
+  media.metadata = new cast.framework.messages.GenericMediaMetadata();
+  media.metadata.title = "Radio Orbital";
+
+  const request = new cast.framework.messages.LoadRequestData();
+  request.media = media;
+  request.autoplay = true;
+
+  await playerManager.load(request);
+  return true;
 }
 
 if (localAudio) {
@@ -158,16 +232,23 @@ playBtn?.addEventListener("click", async () => {
 
     if (playerManager) {
       // If CAF has media loaded (paused/buffering), resume via CAF.
-      // If IDLE (no sender has loaded anything yet), fall through to local audio.
+      // If IDLE, load the stream through CAF so the Nest Hub routes audio properly.
       const state = playerManager.getPlayerState?.();
       const idle = !state || state === cast.framework.messages.PlayerState.IDLE;
-      if (!idle) {
-        try {
-          playerManager.play();
+      try {
+        if (idle) {
+          await loadStreamThroughCastPlayer(url);
           setStatus("Playing");
           setCastStatus("Playing");
           return;
-        } catch {}
+        }
+
+        playerManager.play();
+        setStatus("Playing");
+        setCastStatus("Playing");
+        return;
+      } catch {
+        logDebug("CAF play/load failed; trying local preview audio.");
       }
     }
 
@@ -218,6 +299,9 @@ if (context) {
   );
 }
 setStatus("Ready");
+
+refreshTrackMetadata();
+setInterval(refreshTrackMetadata, METADATA_REFRESH_MS);
 
 fitToViewport();
 window.addEventListener("resize", fitToViewport);
