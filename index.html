@@ -558,13 +558,13 @@
     </footer>
 
     <!-- CAF requires <cast-media-player> in the DOM to route audio on Nest Hub.
-         Zeroed out so it doesn't cover our custom UI. -->
-    <cast-media-player style="position:absolute;width:0;height:0;overflow:hidden;"></cast-media-player>
+         Keep it measurable for CAF, but visually behind the custom UI. -->
+    <cast-media-player style="position:absolute;inset:0;opacity:0.01;pointer-events:none;z-index:0;"></cast-media-player>
 
     <!-- Fallback audio element used when CAF is absent (laptop browser preview). -->
     <audio id="radio" preload="none" playsinline></audio>
   </main>
 
-  <script src="./receiver.js?v=3"></script>
+  <script src="./receiver.js?v=5"></script>
 </body>
 </html>
