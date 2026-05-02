@@ -6,6 +6,7 @@
 const DEFAULT_STREAM_URL = "https://ec2.yesstreaming.net:3025/stream";
 const ICECAST_STATUS_URL = "https://ec2.yesstreaming.net:3025/status-json.xsl";
 const METADATA_REFRESH_MS = 15000;
+let nextLocalRequestId = 1;
 
 const castStatusText = document.getElementById("castStatusText");
 const statusText = document.getElementById("statusText");
@@ -109,31 +110,64 @@ const mediaElement = playerManager ? playerManager.getMediaElement() : null;
 
 function currentStreamUrl() {
   try {
+    const state = playerManager?.getPlayerState?.();
+    if (!state || state === cast.framework.messages.PlayerState.IDLE) {
+      return DEFAULT_STREAM_URL;
+    }
+
     const info = playerManager?.getMediaInformation?.();
-    const id = info?.contentId;
-    if (typeof id === "string" && id.length > 0) return id;
+    const url = info?.contentUrl || info?.contentId;
+    if (typeof url === "string" && url.length > 0) return url;
   } catch {}
 
   return DEFAULT_STREAM_URL;
 }
 
-async function loadStreamThroughCastPlayer(url) {
-  if (!playerManager || !cast?.framework?.messages) return false;
-
+function createStreamLoadRequest(url) {
   const media = new cast.framework.messages.MediaInformation();
   media.contentId = url;
   media.contentUrl = url;
   media.contentType = "audio/mpeg";
   media.streamType = cast.framework.messages.StreamType.LIVE;
-  media.metadata = new cast.framework.messages.GenericMediaMetadata();
+  media.metadata = new cast.framework.messages.MusicTrackMediaMetadata();
   media.metadata.title = "Radio Orbital";
 
   const request = new cast.framework.messages.LoadRequestData();
+  request.requestId = nextLocalRequestId++;
   request.media = media;
   request.autoplay = true;
+  return request;
+}
 
-  await playerManager.load(request);
-  return true;
+async function waitForCastPlaybackStart(timeoutMs = 8000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const state = playerManager?.getPlayerState?.();
+    if (
+      state === cast.framework.messages.PlayerState.PLAYING ||
+      state === cast.framework.messages.PlayerState.BUFFERING
+    ) {
+      return true;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  return false;
+}
+
+async function loadStreamThroughCastPlayer(url) {
+  if (!playerManager || !cast?.framework?.messages) return false;
+
+  const request = createStreamLoadRequest(url);
+
+  if (typeof playerManager.sendLocalMediaRequest === "function") {
+    playerManager.sendLocalMediaRequest(request);
+    if (await waitForCastPlaybackStart()) return true;
+  }
+
+  await playerManager.load(createStreamLoadRequest(url));
+  return await waitForCastPlaybackStart();
 }
 
 if (localAudio) {
@@ -157,9 +191,10 @@ if (playerManager) {
       loadRequestData.media.contentType =
         loadRequestData.media.contentType || "audio/mpeg";
       loadRequestData.media.streamType = cast.framework.messages.StreamType.LIVE;
+      loadRequestData.autoplay = true;
       loadRequestData.media.metadata =
         loadRequestData.media.metadata ||
-        new cast.framework.messages.GenericMediaMetadata();
+        new cast.framework.messages.MusicTrackMediaMetadata();
       loadRequestData.media.metadata.title =
         loadRequestData.media.metadata.title || "Rádio Orbital";
 
@@ -237,18 +272,25 @@ playBtn?.addEventListener("click", async () => {
       const idle = !state || state === cast.framework.messages.PlayerState.IDLE;
       try {
         if (idle) {
-          await loadStreamThroughCastPlayer(url);
+          const loaded = await loadStreamThroughCastPlayer(url);
+          if (!loaded) throw new Error("Cast player did not start.");
           setStatus("Playing");
           setCastStatus("Playing");
           return;
         }
 
         playerManager.play();
+        if (!(await waitForCastPlaybackStart(3000))) {
+          throw new Error("Cast player did not resume.");
+        }
+
         setStatus("Playing");
         setCastStatus("Playing");
         return;
-      } catch {
-        logDebug("CAF play/load failed; trying local preview audio.");
+      } catch (error) {
+        setStatus("Cast playback failed");
+        logDebug(`CAF play/load failed: ${error?.message ?? "unknown error"}`);
+        return;
       }
     }
 
@@ -289,7 +331,11 @@ stopBtn?.addEventListener("click", () => {
 });
 
 if (context) {
-  context.start();
+  context.start({
+    uiConfig: {
+      touchScreenOptimizedApp: true,
+    },
+  });
   setCastStatus("Waiting for sender…");
   logDebug("CAF loaded: ready for sender.");
 } else {
