@@ -3,7 +3,7 @@
 // - Updates the on-screen status text for Nest Hub
 // - Provides local Play/Stop buttons (touchscreen)
 
-const DEFAULT_STREAM_URL = "https://ec2.yesstreaming.net:3025/stream";
+const DEFAULT_STREAM_URL = "http://ec2.yesstreaming.net:3020/stream";
 const ICECAST_STATUS_URL = "https://ec2.yesstreaming.net:3025/status-json.xsl";
 const METADATA_REFRESH_MS = 15000;
 let nextLocalRequestId = 1;
