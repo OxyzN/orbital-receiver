@@ -5,6 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Radio Orbital (Cast Receiver)</title>
 
+  <!--
+    APPROACH A: Intercept customElements.define BEFORE the CAF SDK loads.
+    The Cast platform registers <touch-controls> as a custom element that
+    covers the full viewport and intercepts all touch events. By redefining
+    it here first, our version (which hides itself on connection) wins, and
+    the platform's version is silently discarded.
+  -->
+  <script>
+    (function () {
+      try {
+        var _origDefine = customElements.define.bind(customElements);
+        customElements.define = function (name, ctor, opts) {
+          if (name === "touch-controls") {
+            return _origDefine(name, /** @type {any} */ (class extends HTMLElement {
+              connectedCallback() {
+                this.style.cssText =
+                  "display:none!important;" +
+                  "pointer-events:none!important;" +
+                  "visibility:hidden!important;" +
+                  "position:fixed!important;" +
+                  "z-index:-1!important;";
+              }
+            }), opts);
+          }
+          return _origDefine(name, ctor, opts);
+        };
+      } catch (_) {}
+    })();
+  </script>
+
   <!-- Google Cast Application Framework (CAF) receiver -->
   <script type="text/javascript" src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 
@@ -685,6 +715,6 @@
     <audio id="radio" preload="none" playsinline></audio>
   </main>
 
-  <script src="./receiver.js?v=6"></script>
+  <script src="./receiver.js?v=7"></script>
 </body>
 </html>
