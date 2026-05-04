@@ -543,6 +543,11 @@
   </style>
 </head>
 <body>
+  <!-- CAF requires <cast-media-player> in <body> to route audio.
+       Fixed off-screen so it never overlaps the custom UI and is
+       not clipped by any overflow:hidden ancestor. -->
+  <cast-media-player style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;pointer-events:none;"></cast-media-player>
+
   <div class="space" aria-hidden="true">
     <div class="stars"></div>
     <div class="nebula"></div>
@@ -657,10 +662,6 @@
       <span id="statusText">Ready</span>
       <span>Orbital Receiver</span>
     </footer>
-
-    <!-- CAF requires <cast-media-player> in the DOM to route audio on Nest Hub.
-         Keep it measurable for CAF, but visually behind the custom UI. -->
-    <cast-media-player style="position:absolute;inset:0;opacity:0.01;pointer-events:none;z-index:0;"></cast-media-player>
 
     <!-- Fallback audio element used when CAF is absent (laptop browser preview). -->
     <audio id="radio" preload="none" playsinline></audio>
