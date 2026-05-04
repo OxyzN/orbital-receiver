@@ -224,7 +224,6 @@
       border: 1px solid rgba(255,255,255,0.08);
       box-shadow: 0 0 0 1px rgba(34, 231, 255, 0.10), 0 12px 55px rgba(0,0,0,0.55);
       backdrop-filter: blur(18px);
-      will-change: transform;
       overflow: hidden;
     }
 
@@ -497,6 +496,19 @@
       .name { font-size: 30px; }
     }
 
+    /* Nest Hub 1st gen: 1024×600 — slightly compact layout */
+    @media (max-height: 620px) {
+      .panel { padding: 20px; }
+      .header { margin-bottom: 14px; padding-bottom: 14px; }
+      .name { font-size: 30px; }
+      .card { min-height: 0; padding: 16px; }
+      .body { gap: 14px; }
+      .footer { margin-top: 14px; padding-top: 14px; }
+      .visualizer { height: 60px; margin-top: 12px; }
+      .planet { width: 120px; height: 120px; }
+      .planet.small { width: 50px; height: 50px; }
+    }
+
     /* Nest Hub-style layouts are often wide but not tall */
     @media (max-height: 520px) {
       .panel { padding: 18px; }
@@ -673,6 +685,6 @@
     <audio id="radio" preload="none" playsinline></audio>
   </main>
 
-  <script src="./receiver.js?v=5"></script>
+  <script src="./receiver.js?v=6"></script>
 </body>
 </html>
