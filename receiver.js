@@ -103,6 +103,35 @@ async function refreshTrackMetadata() {
   }
 }
 
+// Reliable press handler for both touch (Nest Hub) and mouse (laptop preview).
+// :active CSS doesn't fire on Cast touchscreens without explicit touch handling.
+function hookButton(element, onPress) {
+  if (!element) return;
+  let touching = false;
+
+  element.addEventListener("touchstart", (e) => {
+    e.preventDefault(); // block the 300ms delayed click so we don't double-fire
+    touching = true;
+    element.classList.add("pressed");
+  }, { passive: false });
+
+  element.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    element.classList.remove("pressed");
+    if (touching) { touching = false; onPress(); }
+  }, { passive: false });
+
+  element.addEventListener("touchcancel", () => {
+    touching = false;
+    element.classList.remove("pressed");
+  });
+
+  // Mouse fallback for laptop browser preview.
+  element.addEventListener("mousedown", () => element.classList.add("pressed"));
+  element.addEventListener("mouseup",   () => { element.classList.remove("pressed"); onPress(); });
+  element.addEventListener("mouseleave",() => element.classList.remove("pressed"));
+}
+
 const hasCaf = typeof cast !== "undefined" && cast?.framework?.CastReceiverContext;
 const context = hasCaf ? cast.framework.CastReceiverContext.getInstance() : null;
 const playerManager = context ? context.getPlayerManager() : null;
@@ -261,7 +290,7 @@ if (context) {
   );
 }
 
-playBtn?.addEventListener("click", async () => {
+hookButton(playBtn, async () => {
   try {
     const url = currentStreamUrl();
 
@@ -313,7 +342,7 @@ playBtn?.addEventListener("click", async () => {
   }
 });
 
-stopBtn?.addEventListener("click", () => {
+hookButton(stopBtn, () => {
   try {
     // pause() keeps media loaded so play() can resume; stop() unloads it entirely
     playerManager?.pause?.();
