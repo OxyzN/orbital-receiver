@@ -13,8 +13,8 @@
     :root {
       --bg-deep: #05010f;
       --bg-mid: #110427;
-      --panel: rgba(9, 7, 30, 0.72);
-      --panel-strong: rgba(7, 6, 24, 0.88);
+      --panel: rgba(9, 7, 30, 0.38);
+      --panel-strong: rgba(7, 6, 24, 0.52);
       --line: rgba(120, 90, 255, 0.45);
       --cyan: #22e7ff;
       --blue: #4f8cff;
@@ -399,11 +399,15 @@
       font-weight: 800;
       letter-spacing: 0.04em;
       cursor: pointer;
-      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+      transition: transform 100ms ease, box-shadow 100ms ease, border-color 100ms ease, background 100ms ease, color 100ms ease;
       user-select: none;
     }
 
-    .btn:hover { transform: translateY(-1px); }
+    .btn:hover { transform: translateY(-2px); }
+
+    .btn:active {
+      transform: scale(0.93) translateY(1px);
+    }
 
     .btn.play {
       border-color: rgba(34,231,255,0.55);
@@ -411,11 +415,65 @@
       color: var(--cyan);
     }
 
+    .btn.play:active {
+      background: rgba(34,231,255,0.18);
+      border-color: var(--cyan);
+      color: #fff;
+      box-shadow: 0 0 0 2px rgba(34,231,255,0.55), var(--glow-cyan), 0 0 32px rgba(34,231,255,0.5);
+    }
+
     .btn.stop {
       border-color: rgba(255,79,216,0.55);
       box-shadow: 0 0 0 1px rgba(255,79,216,0.10), var(--glow-pink);
       color: var(--pink);
     }
+
+    .btn.stop:active {
+      background: rgba(255,79,216,0.18);
+      border-color: var(--pink);
+      color: #fff;
+      box-shadow: 0 0 0 2px rgba(255,79,216,0.55), var(--glow-pink), 0 0 32px rgba(255,79,216,0.5);
+    }
+
+    /* Background equalizer — sits behind all panel content */
+    .panel-eq-bg {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) rotate(33deg);
+      width: 190%;
+      height: 426px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.12;
+      filter: blur(18px);
+    }
+
+    .peq {
+      flex: 1;
+      min-height: 10px;
+      border-radius: 99px;
+      background: linear-gradient(180deg, var(--cyan) 0%, var(--violet) 55%, var(--pink) 100%);
+      transform-origin: center;
+      animation: eqBounce 1.2s ease-in-out infinite;
+    }
+
+    /* Stagger durations and phases so bars animate independently */
+    .peq:nth-child(2n)  { animation-duration: 0.83s;  animation-delay: -0.18s; }
+    .peq:nth-child(3n)  { animation-duration: 1.47s;  animation-delay: -0.42s; }
+    .peq:nth-child(4n)  { animation-duration: 1.06s;  animation-delay: -0.67s; }
+    .peq:nth-child(5n)  { animation-duration: 0.94s;  animation-delay: -0.22s; }
+    .peq:nth-child(6n)  { animation-duration: 1.61s;  animation-delay: -0.55s; }
+    .peq:nth-child(7n)  { animation-duration: 0.77s;  animation-delay: -0.38s; }
+    .peq:nth-child(8n)  { animation-duration: 1.33s;  animation-delay: -0.74s; }
+    .peq:nth-child(9n)  { animation-duration: 1.51s;  animation-delay: -0.11s; }
+    .peq:nth-child(11n) { animation-duration: 0.91s;  animation-delay: -0.49s; }
+
+    /* Lift content above the background equalizer */
+    .header, .body, .footer { position: relative; z-index: 1; }
 
     .footer {
       padding-top: 16px;
@@ -499,6 +557,49 @@
   </div>
 
   <main class="panel">
+    <div class="panel-eq-bg" aria-hidden="true">
+      <span class="peq" style="height:28%"></span>
+      <span class="peq" style="height:38%"></span>
+      <span class="peq" style="height:50%"></span>
+      <span class="peq" style="height:62%"></span>
+      <span class="peq" style="height:55%"></span>
+      <span class="peq" style="height:72%"></span>
+      <span class="peq" style="height:64%"></span>
+      <span class="peq" style="height:84%"></span>
+      <span class="peq" style="height:70%"></span>
+      <span class="peq" style="height:80%"></span>
+      <span class="peq" style="height:68%"></span>
+      <span class="peq" style="height:94%"></span>
+      <span class="peq" style="height:78%"></span>
+      <span class="peq" style="height:88%"></span>
+      <span class="peq" style="height:72%"></span>
+      <span class="peq" style="height:96%"></span>
+      <span class="peq" style="height:82%"></span>
+      <span class="peq" style="height:90%"></span>
+      <span class="peq" style="height:76%"></span>
+      <span class="peq" style="height:98%"></span>
+      <span class="peq" style="height:84%"></span>
+      <span class="peq" style="height:92%"></span>
+      <span class="peq" style="height:78%"></span>
+      <span class="peq" style="height:86%"></span>
+      <span class="peq" style="height:70%"></span>
+      <span class="peq" style="height:94%"></span>
+      <span class="peq" style="height:74%"></span>
+      <span class="peq" style="height:84%"></span>
+      <span class="peq" style="height:66%"></span>
+      <span class="peq" style="height:76%"></span>
+      <span class="peq" style="height:60%"></span>
+      <span class="peq" style="height:72%"></span>
+      <span class="peq" style="height:52%"></span>
+      <span class="peq" style="height:64%"></span>
+      <span class="peq" style="height:44%"></span>
+      <span class="peq" style="height:56%"></span>
+      <span class="peq" style="height:36%"></span>
+      <span class="peq" style="height:48%"></span>
+      <span class="peq" style="height:30%"></span>
+      <span class="peq" style="height:22%"></span>
+    </div>
+
     <header class="header">
       <div class="brand">
         <div class="title">Dance Electronic Music</div>
