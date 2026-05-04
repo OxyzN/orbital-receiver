@@ -18,28 +18,6 @@ const playBtn = document.getElementById("playBtn");
 const stopBtn = document.getElementById("stopBtn");
 const localAudio = document.getElementById("radio");
 
-const panel = document.querySelector("main.panel");
-
-function fitToViewport() {
-  if (!panel) return;
-
-  panel.style.transform = "none";
-  panel.style.transformOrigin = "center center";
-
-  requestAnimationFrame(() => {
-    const rect = panel.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return;
-
-    const scale = Math.min(
-      window.innerWidth / rect.width,
-      window.innerHeight / rect.height,
-      1
-    );
-
-    panel.style.transform = `scale(${scale})`;
-  });
-}
-
 function setStatus(text) {
   if (statusText) statusText.textContent = text;
 }
@@ -135,7 +113,6 @@ function hookButton(element, onPress) {
 const hasCaf = typeof cast !== "undefined" && cast?.framework?.CastReceiverContext;
 const context = hasCaf ? cast.framework.CastReceiverContext.getInstance() : null;
 const playerManager = context ? context.getPlayerManager() : null;
-const mediaElement = playerManager ? playerManager.getMediaElement() : null;
 
 function currentStreamUrl() {
   try {
@@ -188,15 +165,32 @@ async function waitForCastPlaybackStart(timeoutMs = 8000) {
 async function loadStreamThroughCastPlayer(url) {
   if (!playerManager || !cast?.framework?.messages) return false;
 
-  const request = createStreamLoadRequest(url);
-
-  if (typeof playerManager.sendLocalMediaRequest === "function") {
-    playerManager.sendLocalMediaRequest(request);
-    if (await waitForCastPlaybackStart()) return true;
+  // playerManager.load() is the correct CAF v3 API for locally-initiated LOAD requests.
+  // sendLocalMediaRequest() is for non-LOAD commands (play/pause/seek) and should not
+  // receive a LoadRequestData — passing it there is a type mismatch that wastes time.
+  try {
+    await playerManager.load(createStreamLoadRequest(url));
+  } catch {
+    // load() may reject if the player enters an error state; let waitForCastPlaybackStart
+    // determine the final outcome.
   }
-
-  await playerManager.load(createStreamLoadRequest(url));
   return await waitForCastPlaybackStart();
+}
+
+// On Nest Hub and other smart displays, the Cast platform injects a <touch-controls>
+// custom element directly into document.body that covers the full viewport and
+// intercepts ALL touch events to show/hide CAF's own playback overlay. This blocks
+// our custom Play/Stop buttons from ever receiving touchstart/touchend.
+//
+// Workaround: hide the element after context.start() and again after each media load
+// (the platform re-inserts it when a new media item loads). Confirmed by Home Assistant
+// Cast receiver source (github.com/home-assistant/frontend).
+function suppressCafTouchOverlay() {
+  const el = document.body.querySelector("touch-controls");
+  if (el) {
+    el.style.display = "none";
+    el.style.pointerEvents = "none";
+  }
 }
 
 if (localAudio) {
@@ -238,7 +232,11 @@ if (playerManager) {
 
   playerManager.addEventListener(
     cast.framework.events.EventType.PLAYER_LOAD_COMPLETE,
-    () => setStatus("Live")
+    () => {
+      setStatus("Live");
+      // The platform re-injects <touch-controls> when media loads; suppress it again.
+      suppressCafTouchOverlay();
+    }
   );
 
   playerManager.addEventListener(
@@ -323,17 +321,14 @@ hookButton(playBtn, async () => {
       }
     }
 
-    // Fallback: local HTML audio element.
+    // Fallback: local HTML audio element (laptop browser preview only).
     if (localAudio) {
       if (localAudio.src !== url) localAudio.src = url;
       await localAudio.play();
-    } else if (mediaElement) {
-      if (!mediaElement.src) mediaElement.src = url;
-      await mediaElement.play();
     }
 
     setStatus("Playing");
-    setCastStatus(playerManager ? "Playing" : "Local play");
+    setCastStatus("Local play");
   } catch {
     setStatus("Tap again");
     logDebug(
@@ -352,10 +347,6 @@ hookButton(stopBtn, () => {
     localAudio?.pause();
   } catch {}
 
-  try {
-    mediaElement?.pause();
-  } catch {}
-
   setStatus("Stopped");
 });
 
@@ -365,6 +356,12 @@ if (context) {
       touchScreenOptimizedApp: true,
     },
   });
+  // Suppress the injected touch overlay immediately; retry after short delays because
+  // the platform can insert <touch-controls> asynchronously after context.start().
+  suppressCafTouchOverlay();
+  setTimeout(suppressCafTouchOverlay, 300);
+  setTimeout(suppressCafTouchOverlay, 1000);
+  setTimeout(suppressCafTouchOverlay, 3000);
   setCastStatus("Waiting for sender…");
   logDebug("CAF loaded: ready for sender.");
 } else {
@@ -377,6 +374,3 @@ setStatus("Ready");
 
 refreshTrackMetadata();
 setInterval(refreshTrackMetadata, METADATA_REFRESH_MS);
-
-fitToViewport();
-window.addEventListener("resize", fitToViewport);
