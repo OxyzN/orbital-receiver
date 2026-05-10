@@ -598,7 +598,7 @@
   <!-- CAF requires <cast-media-player> in <body> to route audio.
        Fixed off-screen so it never overlaps the custom UI and is
        not clipped by any overflow:hidden ancestor. -->
-  <cast-media-player style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;pointer-events:none;"></cast-media-player>
+  <cast-media-player class="castMediaElement" style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;pointer-events:none;"></cast-media-player>
 
   <div class="space" aria-hidden="true">
     <div class="stars"></div>
@@ -719,6 +719,6 @@
     <audio id="radio" preload="none" playsinline></audio>
   </main>
 
-  <script src="./receiver.js?v=8"></script>
+  <script src="./receiver.js?v=9"></script>
 </body>
 </html>
