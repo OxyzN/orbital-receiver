@@ -324,16 +324,28 @@
 
     /* Problem state — visible only when something has actually gone wrong.
        Switches the cyan dot + neutral chrome to the magenta/pink warning
-       palette so it reads as "look at me" rather than ambient status. */
+       palette so it reads as "look at me" rather than ambient status. We
+       also allow the pill to wrap and grow up to ~50vw so the carried
+       error detail (e.g. "Playback error: MEDIA_NETWORK (104)") stays
+       legible from a kitchen distance instead of clipping. */
     .status--problem {
       border-color: rgba(255, 79, 216, 0.55);
       background: rgba(38, 6, 28, 0.78);
       box-shadow: var(--glow-pink);
       color: #fff;
+      max-width: 50vw;
+      white-space: normal;
+      text-align: left;
+      align-items: flex-start;
+      border-radius: 16px;
+      line-height: 1.3;
+      word-break: break-word;
     }
     .status--problem .dot {
       background: var(--pink);
       box-shadow: var(--glow-pink);
+      margin-top: 6px;
+      flex: 0 0 auto;
     }
 
     .dot {
@@ -739,8 +751,6 @@
 
   <main class="panel">
     <div class="panel-eq-bg" aria-hidden="true">
-      <span class="peq" style="height:28%"></span>
-      <span class="peq" style="height:38%"></span>
       <span class="peq" style="height:50%"></span>
       <span class="peq" style="height:62%"></span>
       <span class="peq" style="height:55%"></span>
@@ -777,8 +787,6 @@
       <span class="peq" style="height:56%"></span>
       <span class="peq" style="height:36%"></span>
       <span class="peq" style="height:48%"></span>
-      <span class="peq" style="height:30%"></span>
-      <span class="peq" style="height:22%"></span>
     </div>
 
     <header class="header">
@@ -854,6 +862,6 @@
     <audio id="radio" preload="none" playsinline></audio>
   </main>
 
-  <script src="./receiver.js?v=16"></script>
+  <script src="./receiver.js?v=18"></script>
 </body>
 </html>
