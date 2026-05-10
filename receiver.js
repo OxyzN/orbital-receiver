@@ -139,9 +139,19 @@ function stripSyncedTimestamps(syncedLyrics) {
     .join("\n");
 }
 
+// LRCLIB's /api/get does fuzzy matching and is consistently slow (~5s TTFB
+// even for chart hits, observed via curl). Give it a generous window so the
+// Nest Hub's home-Wi-Fi RTT doesn't push it past the budget; otherwise we
+// get the cryptic "signal is aborted without reason" message Chromium
+// produces when AbortController.abort() fires without an explicit reason.
+const LRCLIB_TIMEOUT_MS = 20000;
+
 async function fetchLyrics(artist, title) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const timeout = setTimeout(
+    () => controller.abort(new DOMException(`LRCLIB request exceeded ${LRCLIB_TIMEOUT_MS}ms`, "TimeoutError")),
+    LRCLIB_TIMEOUT_MS
+  );
   try {
     const url = `${LRCLIB_URL}?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`;
     const response = await fetch(url, { cache: "no-store", signal: controller.signal });
