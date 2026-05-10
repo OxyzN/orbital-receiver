@@ -235,13 +235,47 @@ if (debugLogger) {
   }
 }
 
-function logCafError(prefix, eventOrError) {
-  const detail =
+// Map a numeric CAF detailedErrorCode back to its enum name (e.g. 104 →
+// "MEDIA_NETWORK"). Helpful because Cast's error events typically only carry
+// a numeric code; the name turns the pill from "Playback error: 104" into
+// "Playback error: MEDIA_NETWORK (104)", which is readable from a kitchen
+// distance and immediately points at the failure category.
+function detailedErrorName(code) {
+  if (code === undefined || code === null) return null;
+  try {
+    const ec = cast?.framework?.events?.DetailedErrorCode;
+    if (!ec) return null;
+    for (const [name, value] of Object.entries(ec)) {
+      if (value === code) return name;
+    }
+  } catch {}
+  return null;
+}
+
+// One reporter that handles BOTH the on-screen pill and the verbose
+// debug line, so error sites don't have to keep them in sync by hand.
+// The pill in the corner shows the prefix + the most readable detail we
+// can extract from the event/error; #debugLine carries the same info (for
+// chrome://inspect captures and copy/paste). The previous split led to
+// "Playback error" showing on the pill with the numeric code only landing
+// on the small debug line that's easy to miss across a room.
+function reportError(prefix, eventOrError) {
+  const code =
     eventOrError?.detailedErrorCode ??
     eventOrError?.error?.detailedErrorCode ??
+    null;
+  const message =
     eventOrError?.message ??
-    "unknown";
+    eventOrError?.error?.message ??
+    null;
+  const name = detailedErrorName(code);
+  let detail;
+  if (name && code !== null) detail = `${name} (${code})`;
+  else if (code !== null) detail = String(code);
+  else if (message) detail = message;
+  else detail = "unknown";
   logDebug(`${prefix}: ${detail}`);
+  setCastStatus(`${prefix}: ${detail}`, { isProblem: true });
 }
 
 function currentStreamUrl() {
@@ -345,8 +379,10 @@ async function playAction() {
         return;
       } catch (err) {
         setStatus("Cast play failed");
-        setCastStatus("Cast play failed", { isProblem: true });
-        logCafError("CAF play/load failed", err);
+        // reportError fills both the pill (with the resolved error code /
+        // name) and the debug line in one place. Replaces the prior pair
+        // of "Cast play failed" + logCafError that gave no useful detail.
+        reportError("CAF play/load failed", err);
         return;
       }
     }
@@ -358,10 +394,11 @@ async function playAction() {
     }
     setStatus("Playing");
     setCastStatus("Local play");
-  } catch {
+  } catch (err) {
     setStatus("Tap again");
-    setCastStatus("Play failed", { isProblem: true });
-    logDebug("Play failed — check hosting URL / CSP.");
+    const msg = err?.message ?? "check hosting URL / CSP";
+    setCastStatus(`Play failed: ${msg}`, { isProblem: true });
+    logDebug(`Play failed: ${msg}`);
   }
 }
 
@@ -533,9 +570,9 @@ if (localAudio) {
   localAudio.addEventListener("playing", () => setStatus("Playing"));
   localAudio.addEventListener("error",   () => {
     setStatus("Error");
-    setCastStatus("Local audio error", { isProblem: true });
     const code = localAudio.error?.code ?? "unknown";
     const msg  = localAudio.error?.message ?? "";
+    setCastStatus(`Local audio error: ${code}`, { isProblem: true });
     logDebug(`Local audio error (code=${code}) ${msg}`);
   });
 }
@@ -552,14 +589,15 @@ if (localAudio) {
 function tryAddListener(target, eventType, handler) {
   if (eventType === undefined || eventType === null) {
     logDebug("Skipped listener: event type missing in SDK.");
-    setCastStatus("SDK listener missing", { isProblem: true });
+    setCastStatus("SDK listener missing (undefined enum)", { isProblem: true });
     return;
   }
   try {
     target.addEventListener(eventType, handler);
   } catch (err) {
-    logDebug(`Listener registration failed for ${String(eventType)}: ${err?.message ?? err}`);
-    setCastStatus("SDK listener error", { isProblem: true });
+    const msg = err?.message ?? String(err);
+    logDebug(`Listener registration failed for ${String(eventType)}: ${msg}`);
+    setCastStatus(`SDK listener error: ${msg}`, { isProblem: true });
   }
 }
 
@@ -574,8 +612,9 @@ if (hasCaf) {
   for (const k of playerKeys) if (events[k] === undefined) missing.push(`events.${k}`);
   for (const k of contextKeys) if (sysEvents[k] === undefined) missing.push(`system.${k}`);
   if (missing.length > 0) {
-    logDebug(`SDK enum missing: ${missing.join(", ")}`);
-    setCastStatus("SDK enum missing", { isProblem: true });
+    const summary = `SDK enum missing: ${missing.join(", ")}`;
+    logDebug(summary);
+    setCastStatus(summary, { isProblem: true });
   }
 }
 
@@ -621,8 +660,7 @@ if (playerManager) {
     cast.framework.events.EventType.ERROR,
     (event) => {
       setStatus("Error");
-      setCastStatus("Playback error", { isProblem: true });
-      logCafError("Playback error", event);
+      reportError("Playback error", event);
     }
   );
 
