@@ -37,6 +37,10 @@
 
   <!-- Google Cast Application Framework (CAF) receiver -->
   <script type="text/javascript" src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+  <!-- Cast Debug Logger (optional). Surfaces MEDIA_NETWORK / MEDIA_LOAD error
+       codes that the framework would otherwise swallow. Loaded after the SDK
+       so cast.debug is available; safe to load even when not used. -->
+  <script type="text/javascript" src="https://www.gstatic.com/cast/sdk/libs/devtools/debug_layer/caf_receiver_logger.js"></script>
 
   <style>
     /* Keep the exact theme tokens from Radio.html */
@@ -715,6 +719,6 @@
     <audio id="radio" preload="none" playsinline></audio>
   </main>
 
-  <script src="./receiver.js?v=7"></script>
+  <script src="./receiver.js?v=8"></script>
 </body>
 </html>
