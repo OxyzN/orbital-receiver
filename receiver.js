@@ -25,6 +25,7 @@ const ICECAST_STATUS_URL = "https://ec2.yesstreaming.net:3025/status-json.xsl";
 const METADATA_REFRESH_MS = 15000;
 let nextLocalRequestId = 1;
 
+const castStatus     = document.getElementById("castStatus");
 const castStatusText = document.getElementById("castStatusText");
 const statusText     = document.getElementById("statusText");
 const nowPlaying     = document.getElementById("nowPlaying");
@@ -33,7 +34,18 @@ const trackArtist    = document.getElementById("trackArtist");
 const debugLine      = document.getElementById("debugLine");
 const playBtn        = document.getElementById("playBtn");
 const stopBtn        = document.getElementById("stopBtn");
+const lyricsBtn      = document.getElementById("lyricsBtn");
+const bodyView       = document.getElementById("bodyView");
+const lyricsView     = document.getElementById("lyricsView");
+const lyricsContent  = document.getElementById("lyricsContent");
+const lyricsMessage  = document.getElementById("lyricsMessage");
 const localAudio     = document.getElementById("radio");
+
+// Track currently-rendered lyrics key (artist|title). When the on-air track
+// changes we re-fetch; otherwise we reuse the cached fetch to avoid hammering
+// LRCLIB every 15s when the song doesn't change.
+let currentLyricsKey = null;
+const lyricsCache    = new Map(); // key -> { message, lyrics }
 
 // ---------------------------------------------------------------------------
 // Status helpers
@@ -43,8 +55,16 @@ function setStatus(text) {
   if (statusText) statusText.textContent = text;
 }
 
-function setCastStatus(text) {
+// The cast-status pill in the top-right corner is hidden by default so the
+// Nest Hub shows the clean branded UI. Call with `{ isProblem: true }` to
+// surface a visible warning; any non-problem call hides the pill again so a
+// resolved state doesn't leave stale warning text on screen.
+function setCastStatus(text, options) {
   if (castStatusText) castStatusText.textContent = text;
+  if (!castStatus) return;
+  const isProblem = options?.isProblem === true;
+  castStatus.hidden = !isProblem;
+  castStatus.classList.toggle("status--problem", isProblem);
 }
 
 function logDebug(text) {
@@ -73,6 +93,9 @@ function renderTrackMetadata(metadata) {
   if (trackTitle)  trackTitle.textContent  = metadata.title;
   if (trackArtist) trackArtist.textContent = metadata.artist;
   if (nowPlaying)  nowPlaying.textContent  = "Live from Lisbon";
+  // Refresh lyrics whenever the on-air track changes. Cached per artist|title
+  // so we don't re-hit LRCLIB while the same song plays through.
+  loadLyricsForTrack(metadata.artist, metadata.title);
 }
 
 async function refreshTrackMetadata() {
@@ -90,6 +113,85 @@ async function refreshTrackMetadata() {
     renderTrackMetadata(splitTrackTitle(source?.title || source?.yp_currently_playing));
   } catch {
     if (nowPlaying) nowPlaying.textContent = "Track metadata unavailable.";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Lyrics (LRCLIB)
+// ---------------------------------------------------------------------------
+// LRCLIB is a free open lyrics API at https://lrclib.net. The `/api/get`
+// endpoint takes `artist_name` + `track_name` and returns either a track
+// object with `plainLyrics` / `syncedLyrics` / `instrumental`, or a 404 when
+// no match exists. Live radio doesn't give us a song offset, so we render
+// `plainLyrics` (or strip timestamps from `syncedLyrics` when only those
+// exist).
+
+const LRCLIB_URL = "https://lrclib.net/api/get";
+
+function stripSyncedTimestamps(syncedLyrics) {
+  // LRC format: lines like "[00:12.34] some text". Strip the leading bracket
+  // groups so we can render synced lyrics as plain text when plainLyrics is
+  // absent.
+  return String(syncedLyrics || "")
+    .split(/\r?\n/)
+    .map(line => line.replace(/^(\[\d+:\d+(?:[.:]\d+)?\]\s*)+/, "").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function fetchLyrics(artist, title) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const url = `${LRCLIB_URL}?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`;
+    const response = await fetch(url, { cache: "no-store", signal: controller.signal });
+    if (response.status === 404) return { message: `No lyrics found for "${title}".`, lyrics: "" };
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    if (payload?.instrumental) return { message: "Instrumental track.", lyrics: "" };
+    const lyrics = payload?.plainLyrics || stripSyncedTimestamps(payload?.syncedLyrics);
+    if (!lyrics) return { message: `No lyrics text available for "${title}".`, lyrics: "" };
+    return { message: "", lyrics };
+  } catch (err) {
+    return { message: `Lyrics fetch failed: ${err?.message || err}.`, lyrics: "" };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function renderLyrics(entry) {
+  if (!lyricsContent || !lyricsMessage) return;
+  if (entry?.lyrics) {
+    lyricsContent.textContent = entry.lyrics;
+  } else {
+    lyricsContent.innerHTML = "";
+    lyricsMessage.textContent = entry?.message || "No lyrics available.";
+    lyricsContent.appendChild(lyricsMessage);
+  }
+  lyricsContent.scrollTop = 0;
+}
+
+async function loadLyricsForTrack(artist, title) {
+  if (!artist || !title) return;
+  const key = `${artist.toLowerCase()}|${title.toLowerCase()}`;
+  if (key === currentLyricsKey) return;
+  currentLyricsKey = key;
+  if (lyricsCache.has(key)) {
+    renderLyrics(lyricsCache.get(key));
+    return;
+  }
+  // Show a loading state immediately if the lyrics view is currently open.
+  if (lyricsView && lyricsView.getAttribute("aria-hidden") === "false" && lyricsMessage) {
+    lyricsMessage.textContent = `Looking up lyrics for "${title}"…`;
+    lyricsContent.innerHTML = "";
+    lyricsContent.appendChild(lyricsMessage);
+  }
+  const entry = await fetchLyrics(artist, title);
+  // Only render if the track key is still current — another track may have
+  // started while we were waiting on the network.
+  if (currentLyricsKey === key) {
+    lyricsCache.set(key, entry);
+    renderLyrics(entry);
   }
 }
 
@@ -233,6 +335,7 @@ async function playAction() {
         return;
       } catch (err) {
         setStatus("Cast play failed");
+        setCastStatus("Cast play failed", { isProblem: true });
         logCafError("CAF play/load failed", err);
         return;
       }
@@ -247,6 +350,7 @@ async function playAction() {
     setCastStatus("Local play");
   } catch {
     setStatus("Tap again");
+    setCastStatus("Play failed", { isProblem: true });
     logDebug("Play failed — check hosting URL / CSP.");
   }
 }
@@ -275,8 +379,9 @@ function stopAction() {
     try {
       const els = document.elementsFromPoint(x, y);
       for (const el of els) {
-        if (el === playBtn || (playBtn && playBtn.contains(el))) return playBtn;
-        if (el === stopBtn || (stopBtn && stopBtn.contains(el))) return stopBtn;
+        if (el === playBtn   || (playBtn   && playBtn.contains(el)))   return playBtn;
+        if (el === stopBtn   || (stopBtn   && stopBtn.contains(el)))   return stopBtn;
+        if (el === lyricsBtn || (lyricsBtn && lyricsBtn.contains(el))) return lyricsBtn;
       }
     } catch {}
     return null;
@@ -306,6 +411,7 @@ function stopAction() {
     logDebug("Capture: " + btn.id + " released → action");
     if (btn === playBtn) playAction();
     else if (btn === stopBtn) stopAction();
+    else if (btn === lyricsBtn) showLyrics();
   }, { capture: true, passive: false });
 
   document.addEventListener("touchmove", function(e) {
@@ -346,6 +452,67 @@ function hookButton(element, onPress) {
 
 hookButton(playBtn, playAction);
 hookButton(stopBtn, stopAction);
+hookButton(lyricsBtn, showLyrics);
+
+// ---------------------------------------------------------------------------
+// Lyrics view show / hide with cross-fade
+// ---------------------------------------------------------------------------
+// The CSS transitions on .body and .lyrics-view do the heavy lifting — JS
+// just toggles `aria-hidden`. We keep both elements in the same grid cell
+// (.stage) so they cross-fade in place without a layout jump.
+
+function showLyrics() {
+  if (!bodyView || !lyricsView) return;
+  // If we don't have lyrics for the current track yet, render the loading
+  // message immediately so the view isn't blank on first reveal.
+  if (currentLyricsKey && !lyricsCache.has(currentLyricsKey) && lyricsMessage) {
+    lyricsMessage.textContent = "Looking up lyrics…";
+    lyricsContent.innerHTML = "";
+    lyricsContent.appendChild(lyricsMessage);
+  }
+  bodyView.setAttribute("aria-hidden", "true");
+  lyricsView.setAttribute("aria-hidden", "false");
+}
+
+function hideLyrics() {
+  if (!bodyView || !lyricsView) return;
+  lyricsView.setAttribute("aria-hidden", "true");
+  bodyView.setAttribute("aria-hidden", "false");
+}
+
+// Tap-to-dismiss on the lyrics view, with the same tap-vs-scroll heuristic
+// used by the play/stop capture interceptor (>12px move = scroll, not tap).
+// Mouse click also dismisses for laptop-browser preview.
+if (lyricsView) {
+  let _lyricsStartTouch = null;
+  let _lyricsScrolled = false;
+
+  lyricsView.addEventListener("touchstart", (e) => {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    _lyricsStartTouch = { x: t.clientX, y: t.clientY };
+    _lyricsScrolled = false;
+  }, { passive: true });
+
+  lyricsView.addEventListener("touchmove", (e) => {
+    if (!_lyricsStartTouch) return;
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const dx = t.clientX - _lyricsStartTouch.x;
+    const dy = t.clientY - _lyricsStartTouch.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 12) _lyricsScrolled = true;
+  }, { passive: true });
+
+  lyricsView.addEventListener("touchend", () => {
+    if (_lyricsStartTouch && !_lyricsScrolled) hideLyrics();
+    _lyricsStartTouch = null;
+    _lyricsScrolled = false;
+  }, { passive: true });
+
+  // Desktop preview / mouse fallback. The pressed state on .btn buttons uses
+  // mousedown/up; for the lyrics view a click is enough.
+  lyricsView.addEventListener("click", hideLyrics);
+}
 
 // ---------------------------------------------------------------------------
 // Audio element listeners
@@ -356,6 +523,7 @@ if (localAudio) {
   localAudio.addEventListener("playing", () => setStatus("Playing"));
   localAudio.addEventListener("error",   () => {
     setStatus("Error");
+    setCastStatus("Local audio error", { isProblem: true });
     const code = localAudio.error?.code ?? "unknown";
     const msg  = localAudio.error?.message ?? "";
     logDebug(`Local audio error (code=${code}) ${msg}`);
@@ -374,12 +542,14 @@ if (localAudio) {
 function tryAddListener(target, eventType, handler) {
   if (eventType === undefined || eventType === null) {
     logDebug("Skipped listener: event type missing in SDK.");
+    setCastStatus("SDK listener missing", { isProblem: true });
     return;
   }
   try {
     target.addEventListener(eventType, handler);
   } catch (err) {
     logDebug(`Listener registration failed for ${String(eventType)}: ${err?.message ?? err}`);
+    setCastStatus("SDK listener error", { isProblem: true });
   }
 }
 
@@ -395,6 +565,7 @@ if (hasCaf) {
   for (const k of contextKeys) if (sysEvents[k] === undefined) missing.push(`system.${k}`);
   if (missing.length > 0) {
     logDebug(`SDK enum missing: ${missing.join(", ")}`);
+    setCastStatus("SDK enum missing", { isProblem: true });
   }
 }
 
@@ -440,6 +611,7 @@ if (playerManager) {
     cast.framework.events.EventType.ERROR,
     (event) => {
       setStatus("Error");
+      setCastStatus("Playback error", { isProblem: true });
       logCafError("Playback error", event);
     }
   );
