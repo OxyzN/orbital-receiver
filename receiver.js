@@ -101,6 +101,37 @@ const hasCaf        = typeof cast !== "undefined" && cast?.framework?.CastReceiv
 const context       = hasCaf ? cast.framework.CastReceiverContext.getInstance() : null;
 const playerManager = context ? context.getPlayerManager() : null;
 
+// CastDebugLogger surfaces the platform's MEDIA_NETWORK / MEDIA_LOAD error codes
+// to the on-screen debug line. Without this, the previous "CAF play/load failed:
+// unknown" error swallowed every interesting cause (TLS renegotiation aborts,
+// CSP blocks, sandbox refusals) and forced re-investigation from scratch.
+const debugLogger = (typeof cast !== "undefined" && cast?.debug?.CastDebugLogger)
+  ? cast.debug.CastDebugLogger.getInstance()
+  : null;
+
+if (debugLogger) {
+  try {
+    debugLogger.loggerLevelByEvents = {
+      "cast.framework.events.category.CORE":
+        cast.framework.LoggerLevel.INFO,
+      "cast.framework.events.EventType.MEDIA_STATUS":
+        cast.framework.LoggerLevel.DEBUG,
+    };
+    debugLogger.setEnabled(true);
+  } catch {
+    // Best-effort; logger is purely diagnostic.
+  }
+}
+
+function logCafError(prefix, eventOrError) {
+  const detail =
+    eventOrError?.detailedErrorCode ??
+    eventOrError?.error?.detailedErrorCode ??
+    eventOrError?.message ??
+    "unknown";
+  logDebug(`${prefix}: ${detail}`);
+}
+
 function currentStreamUrl() {
   try {
     const state = playerManager?.getPlayerState?.();
@@ -202,7 +233,7 @@ async function playAction() {
         return;
       } catch (err) {
         setStatus("Cast play failed");
-        logDebug(`CAF play/load failed: ${err?.message ?? "unknown"}`);
+        logCafError("CAF play/load failed", err);
         return;
       }
     }
@@ -325,7 +356,9 @@ if (localAudio) {
   localAudio.addEventListener("playing", () => setStatus("Playing"));
   localAudio.addEventListener("error",   () => {
     setStatus("Error");
-    logDebug("Local audio error (stream unreachable or unsupported).");
+    const code = localAudio.error?.code ?? "unknown";
+    const msg  = localAudio.error?.message ?? "";
+    logDebug(`Local audio error (code=${code}) ${msg}`);
   });
 }
 
@@ -373,7 +406,17 @@ if (playerManager) {
     cast.framework.events.EventType.ERROR,
     (event) => {
       setStatus("Error");
-      logDebug(`Playback error: ${event?.detailedErrorCode ?? "unknown"}`);
+      logCafError("Playback error", event);
+    }
+  );
+
+  // MEDIA_FINISHED with idleReason !== FINISHED indicates a silent failure (e.g.,
+  // TLS renegotiation killed the fetch). Log the reason so we don't have to guess.
+  playerManager.addEventListener(
+    cast.framework.events.EventType.MEDIA_FINISHED,
+    (event) => {
+      const reason = event?.endedReason ?? "unknown";
+      logDebug(`Media finished: ${reason}`);
     }
   );
 
