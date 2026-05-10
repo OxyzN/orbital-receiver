@@ -317,6 +317,25 @@
       letter-spacing: 0.03em;
     }
 
+    /* Native HTML `hidden` attribute is used to keep the pill out of the
+       layout entirely when there's no problem to report. JS sets/clears the
+       attribute via setCastStatus(text, { isProblem }). */
+    .status[hidden] { display: none !important; }
+
+    /* Problem state — visible only when something has actually gone wrong.
+       Switches the cyan dot + neutral chrome to the magenta/pink warning
+       palette so it reads as "look at me" rather than ambient status. */
+    .status--problem {
+      border-color: rgba(255, 79, 216, 0.55);
+      background: rgba(38, 6, 28, 0.78);
+      box-shadow: var(--glow-pink);
+      color: #fff;
+    }
+    .status--problem .dot {
+      background: var(--pink);
+      box-shadow: var(--glow-pink);
+    }
+
     .dot {
       width: 10px;
       height: 10px;
@@ -331,11 +350,116 @@
       50% { transform: scale(1.1); opacity: 1; }
     }
 
+    /* Stage holds .body and .lyrics-view in the same grid cell so they can
+       cross-fade. Both children are grid-area: 1/1; only one is visible at
+       a time. The stage's intrinsic height is whatever the taller child
+       requests, so swapping doesn't collapse layout. */
+    .stage {
+      display: grid;
+      grid-template: 1fr / 1fr;
+    }
+
+    .body, .lyrics-view {
+      grid-area: 1 / 1;
+      transition: opacity 280ms ease, transform 280ms ease;
+      will-change: opacity, transform;
+    }
+
     .body {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 18px;
       align-items: stretch;
+    }
+
+    .body[aria-hidden="true"] {
+      opacity: 0;
+      transform: scale(0.96) translateY(-8px);
+      pointer-events: none;
+    }
+
+    .lyrics-view {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 18px;
+      background: var(--panel-strong);
+      border: 1px solid rgba(255,255,255,0.08);
+      min-height: 180px;
+      opacity: 0;
+      transform: scale(1.04);
+      pointer-events: none;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .lyrics-view[aria-hidden="false"] {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    .lyrics-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .lyrics-header h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.04em;
+      color: var(--soft);
+      text-transform: uppercase;
+    }
+
+    .lyrics-hint {
+      font-size: 13px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      text-shadow: var(--glow-cyan);
+    }
+
+    .lyrics-content {
+      flex: 1;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      line-height: 1.55;
+      color: rgba(238, 246, 255, 0.92);
+      white-space: pre-wrap;
+      font-size: 16px;
+      max-height: 56vh;
+      padding-right: 6px;
+      /* Smooth-scroll feels native on touch panels */
+      scroll-behavior: smooth;
+    }
+
+    .lyrics-message {
+      margin: 0;
+      color: var(--soft);
+      opacity: 0.85;
+      font-style: italic;
+    }
+
+    /* Lyrics toggle replaces the "Tip" copy. Lives inside .card so it
+       sits where the Tip headline used to be; same neon outline as the
+       Play / Stop buttons but in violet to avoid clashing with them. */
+    .btn.lyrics-toggle {
+      width: 100%;
+      margin-bottom: 14px;
+      border-color: rgba(141, 77, 255, 0.55);
+      color: var(--violet);
+      box-shadow: 0 0 0 1px rgba(141, 77, 255, 0.10), var(--glow-violet);
+    }
+    .btn.lyrics-toggle:active,
+    .btn.lyrics-toggle.pressed {
+      background: rgba(141, 77, 255, 0.18);
+      border-color: var(--violet);
+      color: #fff;
+      box-shadow: 0 0 0 2px rgba(141, 77, 255, 0.55), var(--glow-violet), 0 0 32px rgba(141, 77, 255, 0.5);
     }
 
     .card {
@@ -662,53 +786,64 @@
         <div class="title">Dance Electronic Music</div>
         <h1 class="name"><span class="radio">Radio</span> <span class="orbital">Orbital</span></h1>
       </div>
-      <div class="status" id="castStatus">
+      <!-- Hidden by default. setCastStatus(text, { isProblem: true }) in
+           receiver.js toggles the `hidden` attribute and the
+           `.status--problem` class to surface real failures only. -->
+      <div class="status" id="castStatus" hidden>
         <span class="dot" aria-hidden="true"></span>
         <span id="castStatusText">Waiting for sender…</span>
       </div>
     </header>
 
-    <section class="body">
-      <section class="card">
-        <h2>Now Playing</h2>
-        <p class="track-title" id="trackTitle">Live stream from Lisbon</p>
-        <p class="track-artist" id="trackArtist">Radio Orbital</p>
-        <p id="nowPlaying">Waiting for track metadata.</p>
-        <div class="controls">
-          <button class="btn play" id="playBtn" type="button">Play</button>
-          <button class="btn stop" id="stopBtn" type="button">Stop</button>
-        </div>
+    <div class="stage" id="stage">
+      <section class="body" id="bodyView" aria-hidden="false">
+        <section class="card">
+          <h2>Now Playing</h2>
+          <p class="track-title" id="trackTitle">Live stream from Lisbon</p>
+          <p class="track-artist" id="trackArtist">Radio Orbital</p>
+          <p id="nowPlaying">Waiting for track metadata.</p>
+          <div class="controls">
+            <button class="btn play" id="playBtn" type="button">Play</button>
+            <button class="btn stop" id="stopBtn" type="button">Stop</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <button class="btn lyrics-toggle" id="lyricsBtn" type="button">See lyrics</button>
+          <div class="visualizer" aria-hidden="true">
+            <span class="bar" style="height:30%"></span>
+            <span class="bar" style="height:48%"></span>
+            <span class="bar" style="height:68%"></span>
+            <span class="bar" style="height:52%"></span>
+            <span class="bar" style="height:84%"></span>
+            <span class="bar" style="height:40%"></span>
+            <span class="bar" style="height:92%"></span>
+            <span class="bar" style="height:58%"></span>
+            <span class="bar" style="height:74%"></span>
+            <span class="bar" style="height:34%"></span>
+            <span class="bar" style="height:88%"></span>
+            <span class="bar" style="height:44%"></span>
+            <span class="bar" style="height:80%"></span>
+            <span class="bar" style="height:52%"></span>
+            <span class="bar" style="height:96%"></span>
+            <span class="bar" style="height:38%"></span>
+            <span class="bar" style="height:66%"></span>
+            <span class="bar" style="height:54%"></span>
+          </div>
+          <p id="debugLine" style="opacity:.8"></p>
+        </section>
       </section>
 
-      <section class="card">
-        <h2>Tip</h2>
-        <p>
-          This is a custom Google Cast receiver, so this HTML UI renders directly on the Nest Hub.
-          Use the Android app’s Cast button to connect and start playback.
-        </p>
-        <div class="visualizer" aria-hidden="true">
-          <span class="bar" style="height:30%"></span>
-          <span class="bar" style="height:48%"></span>
-          <span class="bar" style="height:68%"></span>
-          <span class="bar" style="height:52%"></span>
-          <span class="bar" style="height:84%"></span>
-          <span class="bar" style="height:40%"></span>
-          <span class="bar" style="height:92%"></span>
-          <span class="bar" style="height:58%"></span>
-          <span class="bar" style="height:74%"></span>
-          <span class="bar" style="height:34%"></span>
-          <span class="bar" style="height:88%"></span>
-          <span class="bar" style="height:44%"></span>
-          <span class="bar" style="height:80%"></span>
-          <span class="bar" style="height:52%"></span>
-          <span class="bar" style="height:96%"></span>
-          <span class="bar" style="height:38%"></span>
-          <span class="bar" style="height:66%"></span>
-          <span class="bar" style="height:54%"></span>
+      <section class="lyrics-view" id="lyricsView" aria-hidden="true">
+        <header class="lyrics-header">
+          <h2>Lyrics</h2>
+          <span class="lyrics-hint">Tap to close</span>
+        </header>
+        <div class="lyrics-content" id="lyricsContent">
+          <p class="lyrics-message" id="lyricsMessage">Tap "See lyrics" to load.</p>
         </div>
-        <p id="debugLine" style="opacity:.8"></p>
       </section>
-    </section>
+    </div>
 
     <footer class="footer">
       <span id="statusText">Ready</span>
@@ -719,6 +854,6 @@
     <audio id="radio" preload="none" playsinline></audio>
   </main>
 
-  <script src="./receiver.js?v=9"></script>
+  <script src="./receiver.js?v=11"></script>
 </body>
 </html>
