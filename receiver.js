@@ -366,6 +366,38 @@ if (localAudio) {
 // CAF player event listeners
 // ---------------------------------------------------------------------------
 
+// Defensive listener registration. CAF SDK enum drift (e.g., v3.0.0137 silently
+// removed `EventType.STOPPED`) has already aborted top-level evaluation once,
+// killing context.start() before the IPC channel to the sender could open.
+// Skip undefined/null event types and trap any throw from addEventListener so
+// a single missing enum key cannot brick the receiver again.
+function tryAddListener(target, eventType, handler) {
+  if (eventType === undefined || eventType === null) {
+    logDebug("Skipped listener: event type missing in SDK.");
+    return;
+  }
+  try {
+    target.addEventListener(eventType, handler);
+  } catch (err) {
+    logDebug(`Listener registration failed for ${String(eventType)}: ${err?.message ?? err}`);
+  }
+}
+
+// Runtime canary — surfaces the next SDK-enum regression as an on-screen line
+// instead of a silent abort. Checked at top-level eval, before context.start().
+if (hasCaf) {
+  const events = cast?.framework?.events?.EventType ?? {};
+  const sysEvents = cast?.framework?.system?.EventType ?? {};
+  const missing = [];
+  const playerKeys = ["PLAYER_LOAD_COMPLETE", "ERROR", "MEDIA_FINISHED", "PLAYING", "PAUSE"];
+  const contextKeys = ["SENDER_CONNECTED", "SENDER_DISCONNECTED"];
+  for (const k of playerKeys) if (events[k] === undefined) missing.push(`events.${k}`);
+  for (const k of contextKeys) if (sysEvents[k] === undefined) missing.push(`system.${k}`);
+  if (missing.length > 0) {
+    logDebug(`SDK enum missing: ${missing.join(", ")}`);
+  }
+}
+
 if (playerManager) {
   playerManager.setMessageInterceptor(
     cast.framework.messages.MessageType.LOAD,
@@ -393,7 +425,8 @@ if (playerManager) {
     }
   );
 
-  playerManager.addEventListener(
+  tryAddListener(
+    playerManager,
     cast.framework.events.EventType.PLAYER_LOAD_COMPLETE,
     () => {
       setStatus("Live");
@@ -402,7 +435,8 @@ if (playerManager) {
     }
   );
 
-  playerManager.addEventListener(
+  tryAddListener(
+    playerManager,
     cast.framework.events.EventType.ERROR,
     (event) => {
       setStatus("Error");
@@ -412,17 +446,23 @@ if (playerManager) {
 
   // MEDIA_FINISHED with idleReason !== FINISHED indicates a silent failure (e.g.,
   // TLS renegotiation killed the fetch). Log the reason so we don't have to guess.
-  playerManager.addEventListener(
+  // MEDIA_FINISHED also covers "playback ended" semantics that the now-removed
+  // EventType.STOPPED listener used to handle (STOPPED was dropped in CAF v3.0.0137).
+  tryAddListener(
+    playerManager,
     cast.framework.events.EventType.MEDIA_FINISHED,
     (event) => {
       const reason = event?.endedReason ?? "unknown";
       logDebug(`Media finished: ${reason}`);
+      // Preserve the user-visible "Stopped" footer that the deleted STOPPED
+      // listener used to set. Without this, the footer would stay on "Playing"
+      // after a natural end-of-stream / network drop.
+      setStatus("Stopped");
     }
   );
 
-  playerManager.addEventListener(cast.framework.events.EventType.PLAYING, () => setStatus("Playing"));
-  playerManager.addEventListener(cast.framework.events.EventType.PAUSE,   () => setStatus("Paused"));
-  playerManager.addEventListener(cast.framework.events.EventType.STOPPED, () => setStatus("Stopped"));
+  tryAddListener(playerManager, cast.framework.events.EventType.PLAYING, () => setStatus("Playing"));
+  tryAddListener(playerManager, cast.framework.events.EventType.PAUSE,   () => setStatus("Paused"));
 }
 
 // ---------------------------------------------------------------------------
@@ -430,7 +470,8 @@ if (playerManager) {
 // ---------------------------------------------------------------------------
 
 if (context) {
-  context.addEventListener(
+  tryAddListener(
+    context,
     cast.framework.system.EventType.SENDER_CONNECTED,
     () => {
       setCastStatus("Sender connected");
@@ -438,7 +479,8 @@ if (context) {
     }
   );
 
-  context.addEventListener(
+  tryAddListener(
+    context,
     cast.framework.system.EventType.SENDER_DISCONNECTED,
     (event) => {
       const remaining = context.getSenders()?.length ?? 0;
